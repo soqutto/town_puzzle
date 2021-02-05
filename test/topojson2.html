@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>canvas tutorial</title>
+    <script src="../node_modules/d3/dist/d3.js" charset="utf-8"></script>
+    <script src="../node_modules/topojson/dist/topojson.js" charset="utf-8"></script>
+<style>
+.town {
+  stroke: #ffffff;
+  stroke-width: 1.1;
+  fill: #5eafc6;
+  fill-opacity: 0.7;
+}
+</style>
+  </head>
+  <body>
+    <div>
+      <svg></svg>
+          <script>
+            var width = 1000;
+            var height = 600;
+            var scale = 500000;
+            d3.json("../town/h27ka13204.topojson")
+              .then(
+
+            function(topoChofu){
+                          var geoChofu = topojson.feature(topoChofu, topoChofu.objects.town);
+                          var n = topoChofu.bbox[3], e = topoChofu.bbox[2];
+                          var s = topoChofu.bbox[1], w = topoChofu.bbox[0];
+                          console.log("north bound: ", n);
+                          console.log("east bound: ", e);
+                          console.log("south bound: ", s);
+                          console.log("west bound: ", w);
+                          console.log("nw tile: ", get_tile(n, w, 14));
+                          console.log("ne tile: ", get_tile(n, e, 14));
+                          console.log("se tile: ", get_tile(s, e, 14));
+                          console.log("sw tile: ", get_tile(s, w, 14));
+                          var center_latitude = (s+n)/2;
+                          var center_longitude = (e+w)/2;
+                          console.log("center_latitude: ", center_latitude);
+                          console.log("center_longitude: ", center_longitude);
+                          var aProjection = d3.geoMercator()
+                              .center([center_longitude, center_latitude])
+                              .translate([width/2, height/2])
+                              .scale(scale);
+                          console.log(aProjection([e, n]));
+                          var geoPath = d3.geoPath().projection(aProjection);
+                          var svg = d3.select("svg").attr("width", width).attr("height", height);
+
+                          var nw_tile = get_tile(n, w, 14);
+                          var se_tile = get_tile(s, e, 14);
+                          var mesh_array = [];
+                          for(var i = nw_tile[1]; i <= se_tile[1]; i++){
+                                        for(var j = nw_tile[0]; j <= se_tile[0]; j++){
+                                                      mesh_array.push([j, i]);
+                                         }
+                                      };
+                          console.log(mesh_array[0]);
+                          console.log(get_lonlat(mesh_array[0], 14));
+                          console.log(aProjection(get_lonlat(mesh_array[0], 14)));
+
+                          var mesh_interval = [];
+                          mesh_interval.push(
+                            Math.ceil(Math.abs(aProjection(get_lonlat(nw_tile, 14))[0]
+                                    -aProjection(get_lonlat([nw_tile[0]+1, nw_tile[1]], 14))[0])));
+                          mesh_interval.push(
+                            Math.ceil(Math.abs(aProjection(get_lonlat(nw_tile, 14))[0]
+                                    -aProjection(get_lonlat([nw_tile[0], nw_tile[1]+1], 14))[1])));
+
+                          var bgmap = svg.selectAll("image").data(mesh_array)
+                              .enter()
+                              .append("image")
+                                .attr("href", function(d){
+                                        return "https://cyberjapandata.gsi.go.jp/xyz/pale/"+14+"/"+d[0]+"/"+d[1]+".png";})
+                                .attr("x", function(d){
+                                        return aProjection(get_lonlat(d, 14))[0];
+                                        })
+                                .attr("y", function(d){
+                                        return aProjection(get_lonlat(d, 14))[1];
+                                        })
+                                .attr("width", mesh_interval[0])
+                                .attr("height", mesh_interval[0]);
+
+                          var map = svg.selectAll("path").data(geoChofu.features)
+                              .enter()
+                              .append("path")
+                                .attr("d", geoPath)
+                                .attr("class", "town");
+
+                          var zoom = d3.zoom().on('zoom', function(event){
+                                        aProjection.scale(scale * event.transform.k);
+                                        map.attr('d', geoPath);
+                                      });
+                          svg.call(zoom);
+
+                          var drag = d3.drag().on('drag', function(event){
+                                        var tl = aProjection.translate();
+                                        aProjection.translate([tl[0] + event.dx, tl[1] + event.dy]);
+                                        map.attr('d', geoPath);
+                                      });
+                          map.call(drag);
+                        });
+
+            function get_tile(latitude, longitude, zoomlevel){
+                          var lt = latitude / 180 * Math.PI;
+                          var lo = 180 + longitude;
+                          var mesh = Math.pow(2, zoomlevel);
+                          var tile_x = Math.floor(mesh * lo / 360);
+                          var tile_y = Math.floor(mesh * (1 - (Math.log(Math.tan(lt) + (1/Math.cos(lt))) / Math.PI)) / 2);
+                          return [tile_x, tile_y];
+                        }
+
+            function get_lonlat(arr,  zoomlevel){
+                          var tile_x = arr[0], tile_y = arr[1];
+                          var mesh = Math.pow(2, zoomlevel);
+                          var lon_deg = tile_x / mesh * 360 - 180;
+                          var lat_rad = Math.atan(Math.sinh(Math.PI * (1 - 2 * tile_y / mesh)));
+                          var lat_deg = lat_rad * 180 / Math.PI;
+                          return [lon_deg, lat_deg];
+                        }
+          </script>
+    </div>
+  </body>
+</html>

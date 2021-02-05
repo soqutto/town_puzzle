@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>canvas tutorial</title>
+    <script src="../node_modules/d3/dist/d3.js" charset="utf-8"></script>
+    <script src="../node_modules/topojson/dist/topojson.js" charset="utf-8"></script>
+<style>
+.town {
+  stroke: #ffffff;
+  stroke-width: 1.1;
+  fill: #5eafc6;
+  fill-opacity: 0.7;
+}
+</style>
+  </head>
+  <body>
+    <div>
+      <svg></svg>
+          <script>
+            var width = 1000;
+            var height = 600;
+            var scale = 500000;
+            d3.json("../town/h27ka13208.topojson")
+              .then(
+
+            function(topoChofu){
+                          var geoChofu = topojson.feature(topoChofu, topoChofu.objects.town);
+                          var center_latitude = (topoChofu.bbox[1] + topoChofu.bbox[3])/2;
+                          var center_longitude = (topoChofu.bbox[0] + topoChofu.bbox[2])/2;
+                          console.log("center_latitude: ", center_latitude);
+                          console.log("center_longitude: ", center_longitude);
+                          var aProjection = d3.geoMercator()
+                              .center([center_longitude, center_latitude])
+                              .translate([width/2, height/2])
+                              .scale(scale);
+                          var geoPath = d3.geoPath().projection(aProjection);
+                          var svg = d3.select("svg").attr("width", width).attr("height", height);
+
+                          var map = svg.selectAll("path").data(geoChofu.features)
+                              .enter()
+                              .append("path")
+                                .attr("d", geoPath)
+                                .attr("class", "town");
+
+                          var zoom = d3.zoom().on('zoom', function(event){
+                                        aProjection.scale(scale * event.transform.k);
+                                        map.attr('d', geoPath);
+                                      });
+                          svg.call(zoom);
+
+                          var drag = d3.drag().on('drag', function(event){
+                                        var tl = aProjection.translate();
+                                        aProjection.translate([tl[0] + event.dx, tl[1] + event.dy]);
+                                        map.attr('d', geoPath);
+                                      });
+                          map.call(drag);
+                        });
+          </script>
+    </div>
+  </body>
+</html>
