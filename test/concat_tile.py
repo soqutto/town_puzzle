@@ -3,6 +3,7 @@
 import sys
 import cgi, cgitb
 
+import asyncio
 import requests
 import base64
 from io import BytesIO
@@ -25,11 +26,21 @@ def main():
            print("Bad request (5 argument required: x1, x2, y1, y2, z)")
            sys.exit()
 
+    out_base64 = True
+
     x1 = int(field_GET["x1"].value)
     x2 = int(field_GET["x2"].value)
     y1 = int(field_GET["y1"].value)
     y2 = int(field_GET["y2"].value)
     z = int(field_GET["z"].value)
+    if "o" in field_GET:
+        if field_GET["o"].value == "base64":
+            # Base64 output mode(default)
+            pass
+        elif field_GET["o"].value == "png":
+            # PNG output mode
+            out_base64 = False
+
 
     if x1 > x2:
         print("Bad request (argument x1, x2 must be x1 <= x2)")
@@ -60,14 +71,16 @@ def main():
             im = Image.open(BytesIO(req.content))
             dst.paste(im, (j*256, i*256))
 
-
     with BytesIO() as bs:
         dst.save(bs, 'png')
         dst_b64 = base64.b64encode(bs.getvalue())
-        #sys.stdout.buffer.write(b"Content-Type: text/plain\n\n")
-        #sys.stdout.buffer.write(dst_b64)
-        sys.stdout.buffer.write(b"Content-Type: image/png\n\n")
-        sys.stdout.buffer.write(bs.getvalue())
+        if(out_base64):
+            sys.stdout.buffer.write(b"Content-Type: text/plain\n\n")
+            sys.stdout.buffer.write(b"data:image/png;base64,")
+            sys.stdout.buffer.write(dst_b64)
+        else:
+            sys.stdout.buffer.write(b"Content-Type: image/png\n\n")
+            sys.stdout.buffer.write(bs.getvalue())
 
 def getURI(x, y, z):
     return "https://cyberjapandata.gsi.go.jp/xyz/pale/{}/{}/{}.png".format(z, x, y)
